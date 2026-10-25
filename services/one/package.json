@@ -1,0 +1,14 @@
+{
+  "name": "infinity-one",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SVC-INF-02 Infinity-One user directory: users, password hashes, per-Location rights",
+  "license": "UNLICENSED",
+  "main": "server.js",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {}
+}

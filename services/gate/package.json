@@ -1,0 +1,14 @@
+{
+  "name": "infinity-gate",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SVC-INF-04 Infinity Gate: navigator that shows each signed-in user the Locations they have rights to",
+  "license": "UNLICENSED",
+  "main": "server.js",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {}
+}
