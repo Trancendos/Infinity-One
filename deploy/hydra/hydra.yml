@@ -1,0 +1,62 @@
+# SVC-INF-01 Infinity-One OIDC core: Ory Hydra v2 (Apache-2.0).
+# Values marked ${...} come from deploy/.env through docker-compose environment variables;
+# Hydra reads any config key from an env var (e.g. URLS_SELF_ISSUER), which overrides this file.
+serve:
+  public:
+    cors:
+      enabled: true
+      allowed_origins:
+        - https://trancendos.com
+        - https://*.trancendos.com
+      allowed_methods: [GET, POST, OPTIONS]
+      allowed_headers: [Authorization, Content-Type]
+      allow_credentials: true
+  cookies:
+    same_site_mode: Lax
+  # Cloudflare Tunnel terminates TLS and forwards plain HTTP from inside the compose network.
+  # Hydra only trusts X-Forwarded-Proto: https from these addresses.
+  tls:
+    allow_termination_from:
+      - 172.29.0.0/16
+      - 127.0.0.1/32
+
+urls:
+  self:
+    issuer: https://auth.trancendos.com
+  login: https://portal.trancendos.com/login
+  consent: https://portal.trancendos.com/consent
+  logout: https://portal.trancendos.com/logout
+  error: https://portal.trancendos.com/error
+  post_logout_redirect: https://gate.trancendos.com/signed-out
+
+oidc:
+  subject_identifiers:
+    supported_types: [public]
+  dynamic_client_registration:
+    enabled: false
+
+oauth2:
+  # Authorization code clients must use PKCE (S256). Protects the desktop Management Center.
+  pkce:
+    enforced_for_public_clients: true
+  # Tokens are JWTs so Locations (TownHall, MC, Stage Gates) can verify them offline via JWKS.
+  hashers:
+    algorithm: bcrypt
+    bcrypt:
+      cost: 12
+
+strategies:
+  access_token: jwt
+  scope: wildcard
+
+ttl:
+  access_token: 1h
+  id_token: 1h
+  refresh_token: 720h
+  auth_code: 10m
+  login_consent_request: 30m
+
+log:
+  level: info
+  format: json
+  leak_sensitive_values: false

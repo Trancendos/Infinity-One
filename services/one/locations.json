@@ -1,0 +1,10 @@
+[
+  { "id": "platform", "name": "Platform administration", "pillar": "Security", "url": "", "min_level": "admin", "note": "Grants platform_admin in tokens" },
+  { "id": "management-center", "name": "Management Center", "pillar": "Operations", "url": "", "min_level": "admin", "note": "Desktop client; accepts Admin only" },
+  { "id": "townhall", "name": "TownHall", "pillar": "Governance", "url": "", "min_level": "viewer" },
+  { "id": "townhall-gates", "name": "Project Management - Gates", "pillar": "Governance", "url": "", "min_level": "user" },
+  { "id": "service-management", "name": "Service Management Center (CMDB)", "pillar": "Operations", "url": "", "min_level": "user" },
+  { "id": "cranbania", "name": "CranBania (Agile boards)", "pillar": "Operations", "url": "", "min_level": "user" },
+  { "id": "the-library", "name": "The Library", "pillar": "Knowledge", "url": "", "min_level": "viewer" },
+  { "id": "the-cryptex", "name": "The Cryptex", "pillar": "Security", "url": "", "min_level": "user" }
+]

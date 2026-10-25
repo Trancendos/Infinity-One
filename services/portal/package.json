@@ -1,0 +1,14 @@
+{
+  "name": "infinity-portal",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SVC-INF-03 Infinity Portal: sign-in, consent and logout pages for Ory Hydra",
+  "license": "UNLICENSED",
+  "main": "server.js",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {}
+}

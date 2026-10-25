@@ -1,0 +1,132 @@
+# Infinity-One stack. One container per nanoservice; only cloudflared talks to the internet.
+#   SVC-INF-01 hydra      Ory Hydra OIDC core (public :4444 via tunnel, admin :4445 internal only)
+#   SVC-INF-02 one        user directory and Location rights (internal only)
+#   SVC-INF-03 portal     sign-in / consent / logout pages (via tunnel)
+#   SVC-INF-04 gate       navigator by rights level (via tunnel)
+#   cloudflared           outbound-only Cloudflare Tunnel, no open inbound ports on the VM
+# Start: cd deploy && cp .env.example .env && (fill it in) && docker compose up -d
+name: infinity-one
+
+x-restart: &restart
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "5" }
+
+services:
+  postgres:
+    <<: *restart
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: hydra
+      POSTGRES_PASSWORD_FILE: /run/secrets/pg_password
+      POSTGRES_DB: hydra
+    secrets: [pg_password]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hydra"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [infinity]
+
+  hydra-migrate:
+    image: oryd/hydra:v2.3.0
+    command: migrate sql -e --yes
+    environment:
+      DSN: postgres://hydra:${POSTGRES_PASSWORD}@postgres:5432/hydra?sslmode=disable
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: "no"
+    networks: [infinity]
+
+  hydra:
+    <<: *restart
+    image: oryd/hydra:v2.3.0
+    command: serve all --config /etc/hydra/hydra.yml ${HYDRA_DEV_FLAG:-}
+    environment:
+      DSN: postgres://hydra:${POSTGRES_PASSWORD}@postgres:5432/hydra?sslmode=disable
+      SECRETS_SYSTEM: ${HYDRA_SYSTEM_SECRET:?set HYDRA_SYSTEM_SECRET in .env}
+      URLS_SELF_ISSUER: ${ISSUER_URL:-https://auth.trancendos.com}
+      URLS_LOGIN: ${PORTAL_URL:-https://portal.trancendos.com}/login
+      URLS_CONSENT: ${PORTAL_URL:-https://portal.trancendos.com}/consent
+      URLS_LOGOUT: ${PORTAL_URL:-https://portal.trancendos.com}/logout
+      URLS_ERROR: ${PORTAL_URL:-https://portal.trancendos.com}/error
+      URLS_POST_LOGOUT_REDIRECT: ${GATE_URL:-https://gate.trancendos.com}/signed-out
+    volumes:
+      - ./hydra/hydra.yml:/etc/hydra/hydra.yml:ro
+    depends_on:
+      hydra-migrate: { condition: service_completed_successfully }
+    ports:
+      # Bound to localhost only, for register-clients.sh and debugging from the VM itself.
+      - "127.0.0.1:4444:4444"
+      - "127.0.0.1:4445:4445"
+    networks: [infinity]
+
+  one:
+    <<: *restart
+    build: ../services/one
+    environment:
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:?set INTERNAL_TOKEN in .env}
+      DATA_DIR: /data
+    volumes:
+      - onedata:/data
+    networks: [infinity]
+
+  portal:
+    <<: *restart
+    build: ../services/portal
+    environment:
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN}
+      HYDRA_ADMIN_URL: http://hydra:4445
+      ONE_URL: http://one:8043
+      GATE_PUBLIC_URL: ${GATE_URL:-https://gate.trancendos.com}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+    depends_on: [hydra, one]
+    ports:
+      - "127.0.0.1:8042:8042"
+    networks: [infinity]
+
+  gate:
+    <<: *restart
+    build: ../services/gate
+    environment:
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN}
+      HYDRA_PUBLIC_URL: ${ISSUER_URL:-https://auth.trancendos.com}
+      HYDRA_INTERNAL_URL: http://hydra:4444
+      ONE_URL: http://one:8043
+      GATE_PUBLIC_URL: ${GATE_URL:-https://gate.trancendos.com}
+      GATE_CLIENT_ID: infinity-gate
+      GATE_CLIENT_SECRET: ${GATE_CLIENT_SECRET:?set GATE_CLIENT_SECRET in .env}
+      GATE_SESSION_SECRET: ${GATE_SESSION_SECRET:?set GATE_SESSION_SECRET in .env}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+    depends_on: [hydra, one]
+    ports:
+      - "127.0.0.1:8046:8046"
+    networks: [infinity]
+
+  cloudflared:
+    <<: *restart
+    image: cloudflare/cloudflared:2025.10.0
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    depends_on: [hydra, portal, gate]
+    profiles: [tunnel]
+    networks: [infinity]
+
+networks:
+  infinity:
+    ipam:
+      config:
+        - subnet: 172.29.0.0/16
+
+secrets:
+  # Read from POSTGRES_PASSWORD in .env and mounted as a file, not an env var.
+  pg_password:
+    environment: POSTGRES_PASSWORD
+
+volumes:
+  pgdata:
+  onedata:
